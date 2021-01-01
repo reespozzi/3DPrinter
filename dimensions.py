@@ -47,6 +47,16 @@ def get_object_centroid(image):
     #return co ordinates of central point
     return x, y
     
+
+#flood the inside of the exterior object edge with white
+def fill_image(image):
+    filled_image = np.zeros_like(image)
+    contours = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = contours[0] if len(contours) == 2 else contours[1]
+    x,y,w,h = cv2.boundingRect(filled_image)
+    cv2.drawContours(filled_image, [contours[0]], 0, 255, -1)
+    return filled_image
+        
     
     
     
@@ -104,16 +114,28 @@ result = result[y:y+h, x:x+w]
 
 
 #fill image
-filled_image = np.zeros_like(result)
-contours = cv2.findContours(result, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-contours = contours[0] if len(contours) == 2 else contours[1]
-x,y,w,h = cv2.boundingRect(filled_image)
-cv2.drawContours(filled_image, [contours[0]], 0, 255, -1)
+filled_image = fill_image(result)
 
 
 #cv2.imshow("FILLED", filled_image)
 cv2.imshow('Cropped Shape filled' , filled_image)
 cv2.waitKey(0)
+
+
+##find total pixel area of filled shape
+pixel_values = np.asarray(filled_image)
+pixel_count = 0
+total_pixels = 0
+
+for pixel_row in pixel_values:
+    for pixel_value in pixel_row:
+        #check if the pixel is white
+        if(pixel_value == 255):
+            pixel_count = pixel_count + 1
+        total_pixels = total_pixels + 1
+    
+print("Total area of white pixels in shape: " + str(pixel_count))
+print("Area of one quarter: " + str((pixel_count * 100/4)/pixel_count) + "%")
 
 
 #find the moments of the cropped edge image
