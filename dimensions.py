@@ -15,6 +15,8 @@ def pre_process(image):
     #blur the image
     gray = cv2.GaussianBlur(gray, (9, 9), 0)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+    
 
     #cv2.imshow('blurred image', gray)
     edges = cv2.Canny(gray, 20, 100)
@@ -57,6 +59,7 @@ def fill_image(image):
     cv2.drawContours(filled_image, [contours[0]], 0, 255, -1)
     return filled_image
 
+
 #find the total area taken up by the object
 def find_total_area(image):
     pixel_values = np.asarray(filled_image)
@@ -71,6 +74,31 @@ def find_total_area(image):
             total_pixels = total_pixels + 1
     
     return total_pixels, pixel_count
+
+def find_bin_area(image, cX, cY):
+    values = np.asarray(image)
+    bin_area = 0
+    row_position = 0
+    column_position = 0
+    for y in values:
+        row_position = 0    
+        for x in y:
+            #print(x)
+            if(x == 255):
+                bin_area = bin_area + 1
+            if(row_position == cX):
+                print("AT ORIGIN LINE" + str(row_position))
+                break
+            row_position = row_position + 1
+           
+            
+        if(column_position == cY):
+            return bin_area
+        column_position = column_position + 1
+        
+     
+        
+    return 0
         
         
         
@@ -99,9 +127,8 @@ position = find_biggest_contour(contours)
 biggestContourSet = contours[position]
 
 
-#get central point from the biggest set of contour points
+#get central point from the biggest set of contour points on original image
 cX, cY = get_object_centroid(biggestContourSet)
-
 
 
 #draw bounding box
@@ -111,14 +138,9 @@ box = cv2.boxPoints(contourBoundingBox)
 box = np.intc(box)
 
 
-cv2.imshow('Shape bounding box' ,cv2.drawContours(expected_model_image,[box],0,(0,0,255),2))
+cv2.imshow('Biggest shape bounding box' ,cv2.drawContours(expected_model_image,[box],0,(0,0,255),2))
 cv2.waitKey(0)
 
-centroidImage = edged.copy()
-cv2.circle(centroidImage, (cX, cY), 1, (255, 255, 255), 0)
-cv2.putText(centroidImage, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (255, 255, 255), 1)
-cv2.imshow("Centroid mapped", centroidImage)
-cv2.waitKey(0)
 
 
 im3 = cv2.drawContours(image2, contours, -1, (255, 255, 255), thickness=1) 
@@ -145,13 +167,16 @@ cv2.waitKey(0)
 total_pixels, pixel_count = find_total_area(filled_image)
     
 print("Total area of white pixels in shape: " + str(pixel_count))
-print("Area of one quarter: " + str((pixel_count * 100/4)/pixel_count) + "%")
 
 #find centroid of the filled object shape
 cX, cY = get_object_centroid(filled_image)
+print(cX, cY)
 
 
+bin1_area = find_bin_area(filled_image, cX, cY)
+print(bin1_area)
 
+print("Area of shape inside bin 1: " + str((bin1_area * 100)/pixel_count) + "%")
 
 
 
@@ -162,6 +187,7 @@ start_point = (cX, 0)
 end_point = (cX, image_height) 
   
 display_image = np.asarray(filled_image).copy()
+#convert to rgb to show the red
 display_image = cv2.cvtColor(display_image,cv2.COLOR_GRAY2RGB)
 display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
 
@@ -169,9 +195,7 @@ start_point = (0, cY)
 end_point = (image_width, cY) 
 display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
 
-
-
-cv2.circle(display_image, (cX, cY), 1, (0, 0, 255), 0)
+cv2.circle(display_image, (cX, cY), 3, (0, 0, 255), 0)
 #cv2.putText(filled_image, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (0, 0, 255), 1)
 cv2.imshow("Bin Segmentation mapped on cropped image", display_image)
 cv2.waitKey(0)
