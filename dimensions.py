@@ -1,6 +1,6 @@
 from cv2 import cv2
 import skimage
-from PIL import Image
+from PIL import Image, ImageDraw
 import math
 import imutils
 from imutils import contours
@@ -29,7 +29,7 @@ def find_biggest_contour(contours):
     
     for c in contours:
         area = cv2.contourArea(c)
-        print(area)
+       # print(area)
         if(area > highest):
             highest = area
             position = i
@@ -56,6 +56,24 @@ def fill_image(image):
     x,y,w,h = cv2.boundingRect(filled_image)
     cv2.drawContours(filled_image, [contours[0]], 0, 255, -1)
     return filled_image
+
+#find the total area taken up by the object
+def find_total_area(image):
+    pixel_values = np.asarray(filled_image)
+    pixel_count = 0
+    total_pixels = 0
+
+    for pixel_row in pixel_values:
+        for pixel_value in pixel_row:
+            #check if the pixel is white
+            if(pixel_value == 255):
+                pixel_count = pixel_count + 1
+            total_pixels = total_pixels + 1
+    
+    return total_pixels, pixel_count
+        
+        
+        
         
     
     
@@ -89,8 +107,8 @@ cX, cY = get_object_centroid(biggestContourSet)
 #draw bounding box
 contourBoundingBox = cv2.minAreaRect(biggestContourSet)
 box = cv2.boxPoints(contourBoundingBox)
-print(box)
-box = np.int0(box)
+#print(box)
+box = np.intc(box)
 
 
 cv2.imshow('Shape bounding box' ,cv2.drawContours(expected_model_image,[box],0,(0,0,255),2))
@@ -117,31 +135,43 @@ result = result[y:y+h, x:x+w]
 filled_image = fill_image(result)
 
 
+
 #cv2.imshow("FILLED", filled_image)
 cv2.imshow('Cropped Shape filled' , filled_image)
 cv2.waitKey(0)
 
 
 ##find total pixel area of filled shape
-pixel_values = np.asarray(filled_image)
-pixel_count = 0
-total_pixels = 0
-
-for pixel_row in pixel_values:
-    for pixel_value in pixel_row:
-        #check if the pixel is white
-        if(pixel_value == 255):
-            pixel_count = pixel_count + 1
-        total_pixels = total_pixels + 1
+total_pixels, pixel_count = find_total_area(filled_image)
     
 print("Total area of white pixels in shape: " + str(pixel_count))
 print("Area of one quarter: " + str((pixel_count * 100/4)/pixel_count) + "%")
 
-
-#find the moments of the cropped edge image
+#find centroid of the filled object shape
 cX, cY = get_object_centroid(filled_image)
 
-cv2.circle(filled_image, (cX, cY), 1, (0, 0, 255), 0)
-cv2.putText(filled_image, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (0, 0, 255), 1)
-cv2.imshow("Centroid mapped on cropped image", filled_image)
+
+
+
+
+
+#find area in each bin
+image_height, image_width = np.asarray(filled_image).shape
+#line coordinates
+start_point = (cX, 0) 
+end_point = (cX, image_height) 
+  
+display_image = np.asarray(filled_image).copy()
+display_image = cv2.cvtColor(display_image,cv2.COLOR_GRAY2RGB)
+display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
+
+start_point = (0, cY) 
+end_point = (image_width, cY) 
+display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
+
+
+
+cv2.circle(display_image, (cX, cY), 1, (0, 0, 255), 0)
+#cv2.putText(filled_image, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (0, 0, 255), 1)
+cv2.imshow("Bin Segmentation mapped on cropped image", display_image)
 cv2.waitKey(0)
