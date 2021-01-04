@@ -23,6 +23,10 @@ def pre_process(image):
     return edges
 
 
+
+
+
+
 #find the contour from the set with the largest area
 def find_biggest_contour(contours):
     highest = 0
@@ -39,6 +43,10 @@ def find_biggest_contour(contours):
     return position
 
 
+
+
+
+
 #find the central point from the set of contour points
 def get_object_centroid(image):
     #find the moments of the binary image
@@ -49,6 +57,10 @@ def get_object_centroid(image):
     #return co ordinates of central point
     return x, y
     
+    
+    
+    
+    
 
 #flood the inside of the exterior object edge with white
 def fill_image(image):
@@ -58,6 +70,10 @@ def fill_image(image):
     x,y,w,h = cv2.boundingRect(filled_image)
     cv2.drawContours(filled_image, [contours[0]], 0, 255, -1)
     return filled_image
+
+
+
+
 
 
 #find the total area taken up by the object
@@ -75,6 +91,12 @@ def find_total_area(image):
     
     return total_pixels, pixel_count
 
+
+
+
+
+
+##only currently first bin
 def find_bin_area(image, cX, cY):
     values = np.asarray(image)
     bin_area = 0
@@ -87,86 +109,98 @@ def find_bin_area(image, cX, cY):
             if(x == 255):
                 bin_area = bin_area + 1
             if(row_position == cX):
-                print("AT ORIGIN LINE" + str(row_position))
+               # print("AT ORIGIN LINE" + str(row_position))
                 break
             row_position = row_position + 1
-           
-            
+         
         if(column_position == cY):
-            return bin_area
+            return bin_area + cX
         column_position = column_position + 1
-        
-     
-        
     return 0
         
         
         
         
-    
-    
-    
-    
-#image = cv2.imread("bank.jpg")
+        
+        
+def transform_to_binary_image(image):
+    edged = image.copy()
+    # find all contour point sets from an edge filter image
+    image, contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
 
-expected_model_image = cv2.imread("circle_with_mess.jpg")
+    #find position in contour array of the largest area covered, to fetch this contour set
+    position = find_biggest_contour(contours)
+    biggestContourSet = contours[position]
+
+    contour_image = cv2.drawContours(image, contours, -1, (255, 255, 255), thickness=1) 
+    # crop filled contour image
+    result = contour_image.copy()
+    x,y,w,h = cv2.boundingRect(biggestContourSet)
+
+    #result is the binary edge image cropped around the bounding box
+    #of the biggest contour set
+    result = result[y:y+h, x:x+w]
+
+    #fill image
+    filled_image = fill_image(result)
+    return filled_image
+    
+        
+        
+expected_model_image = cv2.imread("print.jpg")
 
 #pre process the image
 processImage = pre_process(expected_model_image)
 
-#cv2.imshow('edges ', edges)
+
+#get the edges of the image
 edged = processImage.copy()
+cv2.imshow('Edges' , edged)
 
 
-# find all contour point sets from an edge filter image
-image2, contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+#fill the image to try and create a binary model
+filled_image = transform_to_binary_image(edged)
+
+## this dilates the edges image to fill any gaps in the outline so a binary 
+## filled image of the object can be created
+completion_checker = 0
+while(completion_checker < 45):
+    
+    ##find total pixel area of filled shape
+    total_pixels, pixel_count = find_total_area(filled_image)
+        
+    print("Total area of white pixels in shape: " + str(pixel_count))
+    completion_checker = (pixel_count * 100)/total_pixels
+
+    print("Percentage of shape that is white" + str(completion_checker)+ "%") 
+    #2x2 kernel  and one iteration to only fill the shape until needed and not over fill
+    kernel = np.ones((2,2),np.uint8)
+    edged = cv2.dilate(edged,kernel,iterations = 1)
+    filled_image = transform_to_binary_image(edged)
+    
+    ##find total pixel area of filled shape
+    total_pixels, pixel_count = find_total_area(filled_image)
+  
 
 
 #find position in contour array of the largest area covered, to fetch this contour set
+image2, contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
 position = find_biggest_contour(contours)
 biggestContourSet = contours[position]
-
-
-#get central point from the biggest set of contour points on original image
-cX, cY = get_object_centroid(biggestContourSet)
-
-
 #draw bounding box
 contourBoundingBox = cv2.minAreaRect(biggestContourSet)
 box = cv2.boxPoints(contourBoundingBox)
 #print(box)
 box = np.intc(box)
-
-
 cv2.imshow('Biggest shape bounding box' ,cv2.drawContours(expected_model_image,[box],0,(0,0,255),2))
 cv2.waitKey(0)
-
-
-
-im3 = cv2.drawContours(image2, contours, -1, (255, 255, 255), thickness=1) 
-# crop filled contour image
-result = im3.copy()
-x,y,w,h = cv2.boundingRect(biggestContourSet)
-
-#result is the binary edge image cropped around the bounding box
-#of the biggest contour set
-result = result[y:y+h, x:x+w]
-
-
-#fill image
-filled_image = fill_image(result)
-
-
-
+    
+        
 #cv2.imshow("FILLED", filled_image)
 cv2.imshow('Cropped Shape filled' , filled_image)
 cv2.waitKey(0)
 
 
-##find total pixel area of filled shape
-total_pixels, pixel_count = find_total_area(filled_image)
-    
-print("Total area of white pixels in shape: " + str(pixel_count))
 
 #find centroid of the filled object shape
 cX, cY = get_object_centroid(filled_image)
