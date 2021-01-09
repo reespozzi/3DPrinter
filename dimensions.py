@@ -78,7 +78,7 @@ def fill_image(image):
 
 #find the total area taken up by the object
 def find_total_area(image):
-    pixel_values = np.asarray(filled_image)
+    pixel_values = np.asarray(image)
     pixel_count = 0
     total_pixels = 0
 
@@ -99,7 +99,6 @@ def find_total_area(image):
 ##only currently first bin
 def find_bin_area(image, cX, cY):
     values = np.asarray(image)
-    bin_area = 0
     bin1 = 0
     bin2 = 0
     bin3 = 0
@@ -114,22 +113,22 @@ def find_bin_area(image, cX, cY):
             #print(x)
             if(column_position < cY):
                 if(x == 255):
-                    if(row_position < cX):
-                        bin1 = bin1 + 1
-                    if(row_position > cX):
-                        bin2 = bin2 + 1
+                    if(row_position <= cX):
+                        bin1 = bin1 + 1.0
+                    if(row_position >= cX):
+                        bin2 = bin2 + 1.0
             if(column_position > cY):
                 if(x == 255):
-                    if(row_position < cX):
-                        bin3 = bin3 + 1
-                    if(row_position > cX):
-                        bin4 = bin4 + 1
+                    if(row_position <= cX):
+                        bin3 = bin3 + 1.0
+                    if(row_position >= cX):
+                        bin4 = bin4 + 1.0
                         
-            row_position = row_position + 1
+            row_position = row_position + 1.0
          
-        column_position = column_position + 1
+        column_position = column_position + 1.0
         
-    return bin1 + 0.5, bin2 + 0.5, bin3 + 0.5, bin4 + 0.5 
+    return bin1, bin2, bin3, bin4 
         
         
         
@@ -158,7 +157,74 @@ def transform_to_binary_image(image):
     filled_image = fill_image(result)
     return filled_image
     
+    
+    
         
+def find_bin_percentages(input_image):
+    #pre process the image
+    processImage = pre_process(input_image)
+
+    #get the edges of the image
+    edged = processImage.copy()
+  
+
+    #closing the holes that may appear inside the edges to potentially speed up and avoid dilation in the next stage
+    kernel = np.ones((5,5),np.uint8)
+    edged = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
+    #2x2 kernel  and one iteration to only fill the shape until needed and not over fill
+    kernel = np.ones((5,5),np.uint8)
+    edged = cv2.dilate(edged,kernel,iterations = 1)
+    cv2.imshow('Edges' , edged)
+
+
+    #fill the image to try and create a binary model
+    filled_image = transform_to_binary_image(edged)
+
+
+    ## this dilates the edges image to fill any gaps in the outline so a binary 
+    ## filled image of the object can be created, that's as close as possible to the model
+    ## the model image will also have to be dilated the same amount of times to remove this discrepancy
+    ## being an issue
+    completion_checker = 0
+    while(completion_checker < 20):
+        
+        ##find total pixel area of filled shape
+        total_pixels, pixel_count = find_total_area(filled_image)
+        print("Total area of white pixels in shape: " + str(pixel_count))
+        completion_checker = (pixel_count * 100)/total_pixels
+        print("Percentage of shape that is white" + str(completion_checker)+ "%") 
+        
+        #2x2 kernel  and one iteration to only fill the shape until needed and not over fill
+        kernel = np.ones((2,2),np.uint8)
+        edged = cv2.dilate(edged,kernel,iterations = 1)
+        filled_image = transform_to_binary_image(edged)
+        
+        ##find total pixel area of filled shape after dilation
+        total_pixels, pixel_count = find_total_area(filled_image)
+    
+
+    #find position in contour array of the largest area covered, to fetch this contour set
+    image2, contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+    position = find_biggest_contour(contours)
+    biggestContourSet = contours[position]
+    #draw bounding box
+    contourBoundingBox = cv2.minAreaRect(biggestContourSet)
+    box = cv2.boxPoints(contourBoundingBox)
+    #print(box)
+    box = np.intc(box)
+    cv2.imshow('Biggest shape bounding box' ,cv2.drawContours(expected_model_image,[box],0,(0,0,255),2))
+    cv2.waitKey(0)
+        
+            
+    #cv2.imshow("FILLED", filled_image)
+    cv2.imshow('Cropped Shape filled' , filled_image)
+    cv2.waitKey(0)
+    
+    #find centroid of the filled object shape
+    cX, cY = get_object_centroid(filled_image)
+
+    return find_bin_area(filled_image, cX, cY), filled_image, pixel_count, cX, cY
+
 
 
 ##validate path
@@ -170,80 +236,16 @@ except:
 
     
 
-#pre process the image
-processImage = pre_process(expected_model_image)
 
 
-#get the edges of the image
-edged = processImage.copy()
-cv2.imshow('Edges' , edged)
-
-#closing the holes that may appear inside the edges to potentially speed up and avoid dilation in the next stage
-kernel = np.ones((5,5),np.uint8)
-edged = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
-
-
-#fill the image to try and create a binary model
-filled_image = transform_to_binary_image(edged)
-
-
-## this dilates the edges image to fill any gaps in the outline so a binary 
-## filled image of the object can be created, that's as close as possible to the model
-## the model image will also have to be dilated the same amount of times to remove this discrepancy
-## being an issue
-completion_checker = 0
-while(completion_checker < 30):
-    
-    ##find total pixel area of filled shape
-    total_pixels, pixel_count = find_total_area(filled_image)
-    print("Total area of white pixels in shape: " + str(pixel_count))
-    completion_checker = (pixel_count * 100)/total_pixels
-    print("Percentage of shape that is white" + str(completion_checker)+ "%") 
-    
-    #2x2 kernel  and one iteration to only fill the shape until needed and not over fill
-    kernel = np.ones((2,2),np.uint8)
-    edged = cv2.dilate(edged,kernel,iterations = 1)
-    filled_image = transform_to_binary_image(edged)
-    
-    ##find total pixel area of filled shape after dilation
-    total_pixels, pixel_count = find_total_area(filled_image)
-  
+model_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(expected_model_image)
 
 
 
-#find position in contour array of the largest area covered, to fetch this contour set
-image2, contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
-position = find_biggest_contour(contours)
-biggestContourSet = contours[position]
-#draw bounding box
-contourBoundingBox = cv2.minAreaRect(biggestContourSet)
-box = cv2.boxPoints(contourBoundingBox)
-#print(box)
-box = np.intc(box)
-cv2.imshow('Biggest shape bounding box' ,cv2.drawContours(expected_model_image,[box],0,(0,0,255),2))
-cv2.waitKey(0)
-    
-        
-#cv2.imshow("FILLED", filled_image)
-cv2.imshow('Cropped Shape filled' , filled_image)
-cv2.waitKey(0)
-
-
-
-#find centroid of the filled object shape
-cX, cY = get_object_centroid(filled_image)
-print(cX, cY)
-
-
-bin1_area, bin2_area, bin3_area, bin4_area= find_bin_area(filled_image, cX, cY)
-
-print("Area of shape inside bin 1: " + str((bin1_area * 100)/pixel_count) + "%")
-print("Area of shape inside bin 2: " + str((bin2_area * 100)/pixel_count) + "%")
-print("Area of shape inside bin 3: " + str((bin3_area * 100)/pixel_count) + "%")
-print("Area of shape inside bin 4: " + str((bin4_area * 100)/pixel_count) + "%")
-
-
-
+print("Area of shape inside bin 1: " + str((model_areas[0] * 100)/pixel_count) + "%")
+print("Area of shape inside bin 2: " + str((model_areas[1] * 100)/pixel_count) + "%")
+print("Area of shape inside bin 3: " + str((model_areas[2] * 100)/pixel_count) + "%")
+print("Area of shape inside bin 4: " + str((model_areas[3] * 100)/pixel_count) + "%")
 
 
 
