@@ -6,6 +6,7 @@ import imutils
 from imutils import contours
 import numpy as np
 import sys
+import os.path
 
 
 #image pre processing
@@ -13,14 +14,14 @@ def pre_process(image):
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)  
     gray = np.asarray(gray)
 
-    #blur the image
+    #blur the image, sufficiently enough to remove some of the higher frequency noise
     gray = cv2.GaussianBlur(gray, (9, 9), 0)
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)
-    
+ 
 
     #cv2.imshow('blurred image', gray)
-    edges = cv2.Canny(gray, 20, 100)
+    ##changing thresholds doesn't affect area proportions but can affect affectives to fill shape and identify 
+    ##edges with lower frequency change
+    edges = cv2.Canny(gray, 50, 75)
     return edges
 
 
@@ -61,7 +62,7 @@ def get_object_centroid(image):
     
     
     
-    
+
 
 #flood the inside of the exterior object edge with white
 def fill_image(image):
@@ -175,7 +176,7 @@ def find_bin_percentages(input_image):
     kernel = np.ones((5,5),np.uint8)
     edged = cv2.dilate(edged,kernel,iterations = 1)
     cv2.imshow('Edges' , edged)
-
+    cv2.waitKey(0)
 
     #fill the image to try and create a binary model
     filled_image = transform_to_binary_image(edged)
@@ -201,20 +202,7 @@ def find_bin_percentages(input_image):
         
         ##find total pixel area of filled shape after dilation
         total_pixels, pixel_count = find_total_area(filled_image)
-    
 
-    #find position in contour array of the largest area covered, to fetch this contour set
-    image2, contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
-    position = find_biggest_contour(contours)
-    biggestContourSet = contours[position]
-    #draw bounding box
-    contourBoundingBox = cv2.minAreaRect(biggestContourSet)
-    box = cv2.boxPoints(contourBoundingBox)
-    #print(box)
-    box = np.intc(box)
-    cv2.imshow('Biggest shape bounding box' ,cv2.drawContours(expected_model_image,[box],0,(0,0,255),2))
-    cv2.waitKey(0)
-        
             
     #cv2.imshow("FILLED", filled_image)
     cv2.imshow('Cropped Shape filled' , filled_image)
@@ -222,52 +210,81 @@ def find_bin_percentages(input_image):
     
     #find centroid of the filled object shape
     cX, cY = get_object_centroid(filled_image)
-
-    return find_bin_area(filled_image, cX, cY), filled_image, pixel_count, cX, cY
-
-
-
-##validate path
-try:
-    expected_model_image = cv2.imread(sys.argv[1])
-except:
-    print 'No model path has been given.'
-    sys.exit()
-
     
+    
+    bin1, bin2, bin3, bin4 = find_bin_area(filled_image, cX, cY)
+    area_percentages = [(bin1 * 100)/pixel_count, (bin2 * 100)/pixel_count, (bin3 * 100)/pixel_count ,(bin4 * 100)/pixel_count]
+
+    return area_percentages, filled_image, pixel_count, cX, cY
+
+
+
+
+
+def display(image, pixel_count, areas):
+    print("Area of shape inside bin 1: " + str(areas[0])+ "%")
+    print("Area of shape inside bin 2: " + str(areas[1]) + "%")
+    print("Area of shape inside bin 3: " + str(areas[2]) + "%")
+    print("Area of shape inside bin 4: " + str(areas[3]) + "%")
+
+    #draw each bin onto the image for clarity
+    image_height, image_width = np.asarray(filled_image).shape
+    #line coordinates
+    start_point = (cX, 0) 
+    end_point = (cX, image_height) 
+    
+    display_image = np.asarray(filled_image).copy()
+    #convert to rgb to show the red
+    display_image = cv2.cvtColor(display_image,cv2.COLOR_GRAY2RGB)
+    display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
+
+    start_point = (0, cY) 
+    end_point = (image_width, cY) 
+    display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
+
+    cv2.circle(display_image, (cX, cY), 3, (0, 0, 255), 0)
+    #cv2.putText(filled_image, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (0, 0, 255), 1)
+    print(display_image.shape)
+    cv2.imshow("Bin Segmentation mapped on cropped image", display_image)
+    cv2.waitKey(0)
+
+
+
+
+def find_discrepancy(model_area_percentages, real_area_percentages):
+    total_discrepancy = 0
+    for x in range(4):
+        difference = abs(model_areas[x] - real_areas[x])
+        print difference
+        total_discrepancy = total_discrepancy + difference
+    
+    print 'Total percentage discrepancy between two images is ' + str(total_discrepancy) + '%.'
+
+
+
+
+
+
+
+
+#check for existence of input images
+if os.path.isfile(sys.argv[1]) and os.path.isfile(sys.argv[2]):
+    expected_model_image = cv2.imread(sys.argv[1])
+    captured_image = cv2.imread(sys.argv[2])
+else:
+    print ("Input path error.")
+    sys.exit()
 
 
 
 model_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(expected_model_image)
+display(filled_image, pixel_count, model_areas)
 
 
+real_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(captured_image)
+display(filled_image, pixel_count, real_areas)
 
-print("Area of shape inside bin 1: " + str((model_areas[0] * 100)/pixel_count) + "%")
-print("Area of shape inside bin 2: " + str((model_areas[1] * 100)/pixel_count) + "%")
-print("Area of shape inside bin 3: " + str((model_areas[2] * 100)/pixel_count) + "%")
-print("Area of shape inside bin 4: " + str((model_areas[3] * 100)/pixel_count) + "%")
-
+find_discrepancy(model_areas, real_areas)
 
 
-
-#find area in each bin
-image_height, image_width = np.asarray(filled_image).shape
-#line coordinates
-start_point = (cX, 0) 
-end_point = (cX, image_height) 
-  
-display_image = np.asarray(filled_image).copy()
-#convert to rgb to show the red
-display_image = cv2.cvtColor(display_image,cv2.COLOR_GRAY2RGB)
-display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
-
-start_point = (0, cY) 
-end_point = (image_width, cY) 
-display_image = cv2.line(display_image, start_point, end_point, (0,0,255), 1) 
-
-cv2.circle(display_image, (cX, cY), 3, (0, 0, 255), 0)
-#cv2.putText(filled_image, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (0, 0, 255), 1)
-print(display_image.shape)
-cv2.imshow("Bin Segmentation mapped on cropped image", display_image)
-cv2.waitKey(0)
 
