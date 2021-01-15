@@ -104,6 +104,10 @@ def find_bin_area(image, cX, cY):
     bin2 = 0
     bin3 = 0
     bin4 = 0
+    bin5 = 0
+    bin6 = 0
+    bin7 = 0
+    bin8 = 0
     
     
     row_position = 0
@@ -114,6 +118,7 @@ def find_bin_area(image, cX, cY):
             #print(x)
             if(column_position < cY):
                 if(x == 255):
+                    
                     if(row_position <= cX):
                         bin1 = bin1 + 1.0
                     if(row_position >= cX):
@@ -151,7 +156,7 @@ def transform_to_binary_image(image):
     x,y,w,h = cv2.boundingRect(biggestContourSet)
 
     #result is the binary edge image cropped around the bounding box
-    #of the biggest contour set
+    #of the biggest contour set 
     result = result[y:y+h, x:x+w]
 
     #fill image
@@ -205,6 +210,7 @@ def find_bin_percentages(input_image):
 
             
     #cv2.imshow("FILLED", filled_image)
+    
     cv2.imshow('Cropped Shape filled' , filled_image)
     cv2.waitKey(0)
     
@@ -246,6 +252,7 @@ def display(image, pixel_count, areas):
     #cv2.putText(filled_image, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (0, 0, 255), 1)
     print(display_image.shape)
     cv2.imshow("Bin Segmentation mapped on cropped image", display_image)
+               
     cv2.waitKey(0)
 
 
@@ -259,7 +266,11 @@ def find_discrepancy(model_area_percentages, real_area_percentages):
         total_discrepancy = total_discrepancy + difference
     
     print 'Total percentage discrepancy between two images is ' + str(total_discrepancy) + '%.'
-
+    
+    if(total_discrepancy > 5):
+        print ' un matched'
+    else:
+        print 'successful print'
 
 
 
@@ -276,7 +287,14 @@ else:
     sys.exit()
 
 
+#images downsampled to reduce computational complexity on very large images. This can result in some lost detail
+#this results in the same percentage difference between the shapes but drastically reduces computation time as
+#there are less pixels to iterate over and count, this also reduces high frequency noise in the background
+#of the image which could cause issues.
 
+#input files should be the same resolution to reduce effect of this even further though
+expected_model_image = cv2.resize(expected_model_image, (300,300))  
+captured_image = cv2.resize(captured_image, (300, 300))  
 model_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(expected_model_image)
 display(filled_image, pixel_count, model_areas)
 
