@@ -7,6 +7,7 @@ from imutils import contours
 import numpy as np
 import sys
 import os.path
+import time
 
 
 #image pre processing
@@ -233,9 +234,9 @@ def find_bin_percentages(input_image):
 
 def display(image, pixel_count, areas):
     count = 0
-    
+    print image.shape
     for bin_area in areas:
-        print("Area of shape inside bin " + str(count) + ": " + str(bin_area) + "%")
+        print("Area of shape inside bin " + str(count + 1) + ": " + str(bin_area) + "%")
         count = count + 1
 
 
@@ -261,9 +262,10 @@ def display(image, pixel_count, areas):
 
     cv2.circle(display_image, (cX, cY), 3, (0, 0, 255), 0)
     #cv2.putText(filled_image, "Center", (cX - 25, cY - 5),cv2.FONT_HERSHEY_PLAIN, 0.9, (0, 0, 255), 1)
-    cv2.imshow("Bin Segmentation mapped on cropped image", display_image)
+   # cv2.imshow("Bin Segmentation mapped on cropped image", display_image)
                
-    cv2.waitKey(0)
+    #cv2.waitKey(0)
+    return display_image
 
 
 
@@ -272,7 +274,7 @@ def find_discrepancy(model_area_percentages, real_area_percentages):
     total_discrepancy = 0
     
     #potential to ignore total discrepancy if only one bin is hugely wrong?
-    for x in range(8):
+    for x in range(len(model_area_percentages)):
         difference = abs(model_areas[x] - real_areas[x])
         total_discrepancy = total_discrepancy + difference
     
@@ -298,23 +300,42 @@ else:
     print ("Input path error, please review input arguments.")
     sys.exit()
 
-
 #images downsampled to reduce computational complexity on very large images. This can result in some lost detail
 #this results in the same percentage difference between the shapes but drastically reduces computation time as
 #there are less pixels to iterate over and count, this also reduces high frequency noise in the background
 #of the image which could cause issues.
-
 #input files should be the same resolution to reduce effect of this even further though
 expected_model_image = cv2.resize(expected_model_image, (300,300))  
-captured_image = cv2.resize(captured_image, (300, 300))  
+captured_image = cv2.resize(captured_image, (300, 300))
+
+horizontal = np.concatenate((expected_model_image, captured_image), axis = 1)
+cv2.imshow("Initial Images", horizontal)
+cv2.waitKey(0)
+start_time = time.time()
+
+
+
+  
+
+#find the relative bin areas of botht the model image and the captured image
 model_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(expected_model_image)
-display(filled_image, pixel_count, model_areas)
-
-
+model_segmented = display(filled_image, pixel_count, model_areas)
 real_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(captured_image)
-display(filled_image, pixel_count, real_areas)
+real_segmented = display(filled_image, pixel_count, real_areas)
 
 find_discrepancy(model_areas, real_areas)
 
+#this shows there is a marginal difference of around 1 second processing time without downsampling the input images
+#with only a 0.3-0.5% accuracy sacrifice.
+print ("--- Runtime: %s seconds. ---" % (time.time() - start_time))
+
+model_segmented = cv2.resize(model_segmented, (300,300))  
+real_segmented= cv2.resize(real_segmented, (300, 300))  
+
+horizontal = np.concatenate((model_segmented, real_segmented), axis = 1)
+cv2.imshow("Comparison", horizontal)
+cv2.waitKey(0)
+print model_segmented.shape
+print real_segmented.shape
 
 
