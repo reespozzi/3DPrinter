@@ -8,21 +8,27 @@ import numpy as np
 import sys
 import os.path
 import time
+from tkinter import *
+from tkinter import colorchooser
+from tkinter.colorchooser import askcolor
 
-
-#image pre processing
+'''
+This function is used to obtain the edges of the shape.
+'''
 def pre_process(image, threshold_value_1, threshold_value_2):
+    #convert the image to gray to reduce computational complexity as
+    #only dealing with one colour channel
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)  
     gray = np.asarray(gray)
 
-    #blur the image, sufficiently enough to remove some of the higher frequency noise
+    #blur the image, sufficiently enough to remove some of the higher frequency noise, and smooth the edges.
     gray = cv2.GaussianBlur(gray, (9, 9), 0)
  
-
-    #cv2.imshow('blurred image', gray)
-    ##changing thresholds doesn't affect area proportions but can affect affectives to fill shape and identify 
+    ##changing thresholds doesn't affect area proportions but can affect  to fill shape and identify 
     ##edges with lower frequency change
     edges = cv2.Canny(gray, threshold_value_1, threshold_value_2)
+    
+    #returns the edge image
     return edges
 
 
@@ -30,27 +36,38 @@ def pre_process(image, threshold_value_1, threshold_value_2):
 
 
 
-#find the contour from the set with the largest area
+'''
+Function used to find the set of contour points which encompass the largest area.
+This aims to find the set of contour points which make up the entire exterior of the shape.
+It will then return which position in the contour array this set exists at.
+'''
 def find_biggest_contour(contours):
     highest = 0
     position = 0
     i = 0
     
+    #compare each contour in the set to find the set of contour
+    #points which encompass the largest area (the outline of the object shape)
+    #linear search O(n)
     for c in contours:
         area = cv2.contourArea(c)
-       # print(area)
+
+        #compare the area of these  contour points to the current highest area.
         if(area > highest):
             highest = area
             position = i
         i += 1
+    #return the position where this largest area was found 
     return position
 
 
 
 
 
-
-#find the central point from the set of contour points
+'''
+This function finds the centroid of the objects 2d Shape. This is used to then map the image
+to find the proportional area of each bin.
+'''
 def get_object_centroid(image):
     #find the moments of the binary image
     imageMoments = cv2.moments(image)
@@ -64,10 +81,15 @@ def get_object_centroid(image):
     
     
 
-
-#flood the inside of the exterior object edge with white
+'''
+This function is used to turn the edge image into a filled version.
+This essentially returns a binary image of the exterior of the shape filled in
+meaning any small gaps or holes in the print. 
+'''
 def fill_image(image):
     filled_image = np.zeros_like(image)
+    #finds the largest contour set and then fills between all of those points to 
+    #create the binary filled image.
     contours = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     cv2.drawContours(filled_image, [contours[0]], 0, 255, -1)
@@ -78,7 +100,11 @@ def fill_image(image):
 
 
 
-#find the total area taken up by the object
+'''
+This function is used to find the total area (white pixel space)
+of an image, to then find the percentage area of each bin compared
+to the shape area overall
+'''
 def find_total_area(image):
     pixel_values = np.asarray(image)
     pixel_count = 0
@@ -86,7 +112,7 @@ def find_total_area(image):
 
     for pixel_row in pixel_values:
         for pixel_value in pixel_row:
-            #check if the pixel is white
+            #check if the pixel is white to add to the area count
             if(pixel_value == 255):
                 pixel_count = pixel_count + 1
             total_pixels = total_pixels + 1
@@ -98,7 +124,12 @@ def find_total_area(image):
 
 
 
-##only currently first bin
+'''
+This function serves to calculate the number of white pixels that exist
+in each of the bins. It does this by splitting the shape into 8, and counting the 
+white pixels in whichever bin it's currently inside. It returns each bin value in an
+array
+'''
 def find_bin_area(image, cX, cY):
     values = np.asarray(image)
     bin_areas = [0] * 8
@@ -108,7 +139,6 @@ def find_bin_area(image, cX, cY):
     for y in values:
         row_position = 0    
         for x in y:
-            #print(x)
             if(column_position < cY):
                 if(x == 255):
                     if(row_position <= cX/2):
@@ -141,7 +171,11 @@ def find_bin_area(image, cX, cY):
         
         
         
-        
+'''
+This function takes the edge image and crops around the area of interest 
+(the largest contour point set (the object shape)), and then sends this image to 
+be filled in
+'''
 def transform_to_binary_image(image):
     edged = image.copy()
     # find all contour point sets from an edge filter image
@@ -168,33 +202,28 @@ def transform_to_binary_image(image):
     
     
     
-        
+'''
+This function is used to find the percentage area each bin takes up of the shape as a whole
+'''    
 def find_bin_percentages(input_image):
-    #pre process the image
-    processImage = pre_process(input_image, 50, 75)
+    #pre process the image, returns the edge image
+    edged = pre_process(input_image, 50, 75)
 
-    #get the edges of the image
-    edged = processImage.copy()
-  
 
-    #closing the holes that may appear inside the edges to potentially speed up and avoid dilation in the next stage
+    #closing the holes that may appear inside the edges to potentially close leaking
+    #in the flood fill stage
     kernel = np.ones((5,5),np.uint8)
     edged = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
-    #2x2 kernel  and one iteration to only fill the shape until needed and not over fill
-    kernel = np.ones((5,5),np.uint8)
+    
+    #2x2 kernel  and one iteration to only fill potential gaps between exterior edges
+    #so that the exterior contour points form a closed polygon and can be filled appropriately.
+    kernel = np.ones((2,2),np.uint8)
     edged = cv2.dilate(edged,kernel,iterations = 1)
-    #cv2.imshow('Edges' , edged)
-    #cv2.waitKey(0)
-
-    #fill the image to try and create a binary model
+  
+    #obtain the filled cropped binary shape image
     filled_image = transform_to_binary_image(edged)
 
 
-    ## this dilates the edges image to fill any gaps in the outline so a binary 
-    ## filled image of the object can be created, that's as close as possible to the model
-    ## the model image will also have to be dilated the same amount of times to remove this discrepancy
-    ## being an issue
-  
         
     ##find total pixel area of filled shape
     total_pixels, pixel_count = find_total_area(filled_image)
@@ -202,21 +231,12 @@ def find_bin_percentages(input_image):
     completion_checker = (pixel_count * 100)/total_pixels
     print("Percentage of shape that is white" + str(completion_checker)+ "%") 
     
-    #2x2 kernel  and one iteration to only fill the shape until needed and not over fill, further ensures the edges form a closed polygon
-    kernel = np.ones((2,2),np.uint8)
-    edged = cv2.dilate(edged,kernel,iterations = 1)
-    filled_image = transform_to_binary_image(edged)
-    
-    ##find total pixel area of filled shape after dilation
-    total_pixels, pixel_count = find_total_area(filled_image)
-
-
-    #cv2.imshow('Cropped Shape filled' , filled_image)
-    #cv2.waitKey(0)
+ 
     
     #find centroid of the filled object shape
     cX, cY = get_object_centroid(filled_image)
     
+    #calculate bin area for each bin
     bin_areas = find_bin_area(filled_image, cX, cY)
     
     #return each bin area count as a percentage area of the total shape area
@@ -231,10 +251,11 @@ def find_bin_percentages(input_image):
 
 
 
-
+'''
+This function is to display meaningful output to the user to understand what the system is doing.
+'''
 def display(image, pixel_count, areas):
     count = 0
-    print image.shape
     for bin_area in areas:
         print("Area of shape inside bin " + str(count + 1) + ": " + str(bin_area) + "%")
         count = count + 1
@@ -246,6 +267,11 @@ def display(image, pixel_count, areas):
     start_point = (cX, 0) 
     end_point = (cX, image_height) 
     
+    '''
+    Each bin is plotted alongside the centroid onto the image so that the user can see
+    where the bins have been split and how the central point of the captured image
+    compared to the model may differ.
+    '''
     display_image = np.asarray(filled_image).copy()
     #convert to rgb to show the red
     display_image = cv2.cvtColor(display_image,cv2.COLOR_GRAY2RGB)
@@ -269,7 +295,10 @@ def display(image, pixel_count, areas):
 
 
 
-
+'''
+This function serves to calculate the discrepancy in proportional area between both
+the model, and the captured image.
+'''
 def find_discrepancy(model_area_percentages, real_area_percentages):
     total_discrepancy = 0
     
@@ -277,18 +306,22 @@ def find_discrepancy(model_area_percentages, real_area_percentages):
     for x in range(len(model_area_percentages)):
         difference = abs(model_areas[x] - real_areas[x])
         total_discrepancy = total_discrepancy + difference
+        
+        
+    '''
     
-    print 'Total percentage discrepancy between two images is ' + str(total_discrepancy) + '%.'
+    Localised error recognition???
+    
+    
+    '''
+    
+    print ('Total percentage discrepancy between two images is ' + str(total_discrepancy) + '%.')
     
     #currently 8 percent differnece in images allowed, allow 1 percent between each bin comparison
     if(total_discrepancy > 8):
-        print 'Area discrepancy, potential misprint has occurred.'
+        print ('Area discrepancy, potential misprint has occurred.')
     else:
-        print 'Currently no area discrepancy between two shapes.'
-
-
-
-
+        print ('Currently no area discrepancy between two shapes.')
 
 
 
@@ -299,6 +332,17 @@ if os.path.isfile(sys.argv[1]) and os.path.isfile(sys.argv[2]):
 else:
     print ("Input path error, please review input arguments.")
     sys.exit()
+    
+image1 = cv2.imread('./testImages/empty.png')
+image2 = cv2.imread('./testImages/benchy_failed_print.png')
+image1 = cv2.resize(image1, (300,300))  
+image2 = cv2.resize(image2, (300, 300))
+
+image3 = image2 -image1
+cv2.imshow("here", image3)
+cv2.waitKey(0)
+
+captured_image = image3
 
 #images downsampled to reduce computational complexity on very large images. This can result in some lost detail
 #this results in the same percentage difference between the shapes but drastically reduces computation time as
@@ -308,9 +352,6 @@ else:
 expected_model_image = cv2.resize(expected_model_image, (300,300))  
 captured_image = cv2.resize(captured_image, (300, 300))
 
-horizontal = np.concatenate((expected_model_image, captured_image), axis = 1)
-cv2.imshow("Initial Images", horizontal)
-cv2.waitKey(0)
 start_time = time.time()
 
 
@@ -323,11 +364,14 @@ model_segmented = display(filled_image, pixel_count, model_areas)
 real_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(captured_image)
 real_segmented = display(filled_image, pixel_count, real_areas)
 
+
+#find the area discrepancy between the model and the captured image
 find_discrepancy(model_areas, real_areas)
 
 #this shows there is a marginal difference of around 1 second processing time without downsampling the input images
 #with only a 0.3-0.5% accuracy sacrifice.
 print ("--- Runtime: %s seconds. ---" % (time.time() - start_time))
+
 
 model_segmented = cv2.resize(model_segmented, (300,300))  
 real_segmented= cv2.resize(real_segmented, (300, 300))  
@@ -335,7 +379,5 @@ real_segmented= cv2.resize(real_segmented, (300, 300))
 horizontal = np.concatenate((model_segmented, real_segmented), axis = 1)
 cv2.imshow("Comparison", horizontal)
 cv2.waitKey(0)
-print model_segmented.shape
-print real_segmented.shape
-
+print ('Complete.')
 
