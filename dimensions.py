@@ -326,24 +326,30 @@ def find_discrepancy(model_area_percentages, real_area_percentages):
 
 
 #check for existence of input images
+
 if os.path.isfile(sys.argv[1]) and os.path.isfile(sys.argv[2]):
     expected_model_image = cv2.imread(sys.argv[1])
     captured_image = cv2.imread(sys.argv[2])
+    
+    #3rd arg is empty background
+    if len(sys.argv) > 3 and os.path.isfile(sys.argv[2]) and os.path.isfile(sys.argv[3]):
+        #optional background subtraction to remove background from the contour detection
+        image1 = cv2.imread(sys.argv[2])
+        image2 = cv2.imread(sys.argv[3])
+        image1 = cv2.resize(image1, (300,300))  
+        image2 = cv2.resize(image2, (300, 300))
+
+        image3 = image2 -image1
+        cv2.imshow("here", image3)
+        cv2.waitKey(0)
+
+        captured_image = image3
+  
+
 else:
     print ("Input path error, please review input arguments.")
     sys.exit()
     
-image1 = cv2.imread('./testImages/empty.png')
-image2 = cv2.imread('./testImages/benchy_failed_print.png')
-image1 = cv2.resize(image1, (300,300))  
-image2 = cv2.resize(image2, (300, 300))
-
-image3 = image2 -image1
-cv2.imshow("here", image3)
-cv2.waitKey(0)
-
-captured_image = image3
-
 #images downsampled to reduce computational complexity on very large images. This can result in some lost detail
 #this results in the same percentage difference between the shapes but drastically reduces computation time as
 #there are less pixels to iterate over and count, this also reduces high frequency noise in the background
