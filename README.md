@@ -1,4 +1,4 @@
-# 3DPrinter
+# Cost-Effective Object Analysis for 3D-Printing
 
 **Dependencies required for successul use** 
 * install of python-opencv
