@@ -1,13 +1,14 @@
 # 3DPrinter
 
-**Dependencies required for successul use** \n
+**Dependencies required for successul use** 
 * install of python-opencv
 * install of python NumPy
 * install of python time library
 * install of python os library
 * install of python sys library
 
-**Run Guide with Examples** \n
+**Run Guide with Examples** 
+
 Once inside the root dir of the download,users should see dimensions.py, a readme file, and a testImages dir.
 To run the software tool with an expected model and a real image, enter two image parameters as shown in command 1.
 To run the software tool with an expected model, a real image, and the still background image before the print started, enter the third image parameter as the background image, as shown in command 2.
