@@ -17,6 +17,8 @@ Example Commands:
 * Command 1: python dimensions.py ./testImages/benchy_model.png ./testImages/benchy_print.png
 * Command 2: python dimensions.py ./testImages/benchy_model.png ./testImages/benchy_model_print.png ./testImages/empty.png
 
-expected output
+**Expected Output**
 
-expected usage
+The system will display the segmented versions of both the real and captured images. It will also display the runtime and percentage difference between the two. A classification of error or no error will then be given. The program can be exited by then pressing any key.
+
+
