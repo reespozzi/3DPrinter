@@ -1,6 +1,4 @@
 from cv2 import cv2
-import math
-from skimage.util import random_noise
 import numpy as np
 import sys
 import os.path
@@ -19,7 +17,7 @@ def pre_process(image, threshold_value_1, threshold_value_2):
     
 
     #blur the image, sufficiently enough to remove some of the higher frequency noise, and smooth the edges.
-    gray = cv2.GaussianBlur(gray, (7,7), 0)
+    gray = cv2.GaussianBlur(gray, (5,5), 0)
  
     ##changing thresholds doesn't affect area proportions but can affect  to fill shape and identify 
     ##edges with lower frequency change
@@ -268,32 +266,31 @@ def find_discrepancy(model_area_percentages, real_area_percentages):
 
 
 #check for existence of input images
-if os.path.isfile(sys.argv[1]) and os.path.isfile(sys.argv[2]):
-    expected_model_image = cv2.imread(sys.argv[1])
-    captured_image = cv2.imread(sys.argv[2])
-  
+try:
+    if os.path.isfile(sys.argv[1]) and os.path.isfile(sys.argv[2]):
+        expected_model_image = cv2.imread(sys.argv[1])
+        captured_image = cv2.imread(sys.argv[2])
     
-    #3rd arg is empty background
-    if len(sys.argv) > 3 and os.path.isfile(sys.argv[2]) and os.path.isfile(sys.argv[3]):
-        #optional background subtraction to remove background from the contour detection
-        image1 = cv2.imread(sys.argv[2])
-        image2 = cv2.imread(sys.argv[3])
-        image3 = image2 - image1
-        captured_image = image3
         
-        #cv2.imshow('Background Image Difference', captured_image)
-        #cv2.waitKey(0)
-else:
+        #3rd arg is empty background
+        if len(sys.argv) > 3 and os.path.isfile(sys.argv[2]) and os.path.isfile(sys.argv[3]):
+            #optional background subtraction to remove background from the contour detection
+            image1 = cv2.imread(sys.argv[2])
+            image2 = cv2.imread(sys.argv[3])
+            try:
+                image3 = image2 - image1
+                captured_image = image3
+            except:
+                print("Image dimensions do not match.")
+                sys.exit()
+    else:
+        raise Exception
+except:
     print ("Input path error, please review input arguments.")
     sys.exit()
-    
-    
-# Add salt-and-pepper noise to the image.
-#noise_img = random_noise(captured_image, mode='s&p',amount=0.4)
-#captured_image = np.array(255*noise_img, dtype = 'uint8')
-#cv2.namedWindow('with noise', cv2.WINDOW_NORMAL)
-#cv2.imshow("with noise", captured_image)
 
+    
+    
 #start runtime  
 start_time = time.time()
 
@@ -311,20 +308,20 @@ difference = find_discrepancy(model_areas, real_areas)
 
 #go down pyramid until potential match is found for images that may not have been detected properly
 #doesn't matter that it amplifies errors for already false images, it's trying to find correct shapes.
-if difference  > 10:
+if difference  > 6:
     print ("layer 1")
     captured_pyr_level_1 = cv2.pyrDown(captured_image)
     pyr_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(captured_pyr_level_1)
     pyr_segmented = display(filled_image, pixel_count, pyr_areas, cX, cY)
     difference = find_discrepancy(model_areas, pyr_areas)
   
-    if difference > 10:
+    if difference > 6:
         print ("layer 2")
         captured_pyr_level_2 = cv2.pyrDown(captured_pyr_level_1)
         pyr_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(captured_pyr_level_2)
         pyr_segmented = display(filled_image, pixel_count, real_areas,cX, cY)
         difference = find_discrepancy(model_areas, pyr_areas)
-        if(difference > 10):
+        if(difference > 6):
             print ("layer 3")
             print ("Error detected. Area difference of: " + str(difference) + "%")
             print ("--- Runtime: %s seconds. ---" % (time.time() - start_time))
