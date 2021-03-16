@@ -305,20 +305,20 @@ difference = find_discrepancy(model_areas, real_areas)
 
 #go down pyramid until potential match is found for images that may not have been detected properly
 #doesn't matter that it amplifies errors for already false images, it's trying to find correct shapes.
-if difference  > 6:
+if difference  > 7:
     print ("layer 1")
     captured_pyr_level_1 = cv2.pyrDown(captured_image)
     pyr_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(captured_pyr_level_1)
     pyr_segmented = display(filled_image, pixel_count, pyr_areas, cX, cY)
     difference = find_discrepancy(model_areas, pyr_areas)
   
-    if difference > 6:
+    if difference > 7:
         print ("layer 2")
         captured_pyr_level_2 = cv2.pyrDown(captured_pyr_level_1)
         pyr_areas, filled_image, pixel_count, cX, cY = find_bin_percentages(captured_pyr_level_2)
         pyr_segmented = display(filled_image, pixel_count, real_areas,cX, cY)
         difference = find_discrepancy(model_areas, pyr_areas)
-        if(difference > 6):
+        if(difference > 7):
             print ("layer 3")
             print ("Error detected. Area difference of: " + str(difference) + "%")
             print ("--- Runtime: %s seconds. ---" % (time.time() - start_time))
