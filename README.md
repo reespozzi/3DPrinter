@@ -14,7 +14,7 @@ To run the software tool with an expected model and a real image, enter two imag
 To run the software tool with an expected model, a real image, and the still background image before the print started, enter the third image parameter as the background image, as shown in command 2. Please note that these commands are for a Linux machine. Commands may vary depending on OS used.
 
 Example Commands:
-* Command 1: python dimensions.py ./testImages/benchy_model.png ./testImages/benchy_print.png
+* Command 1: python dimensions.py ./testImages/benchy_model.png ./testImages/benchy_print_yellow.png
 * Command 2: python dimensions.py ./testImages/benchy_model.png ./testImages/benchy_model_print.png ./testImages/empty.png
 
 **Expected Output**
