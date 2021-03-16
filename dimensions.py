@@ -253,10 +253,8 @@ def find_discrepancy(model_area_percentages, real_area_percentages):
     total_discrepancy = 0
     
     for x in range(len(model_area_percentages)):
-        difference = abs(model_area_percentages[x] - real_area_percentages[x])
-        total_discrepancy = total_discrepancy + difference
+        total_discrepancy += abs(model_area_percentages[x] - real_area_percentages[x])
         
-
     return total_discrepancy
 
 
@@ -271,7 +269,6 @@ try:
         expected_model_image = cv2.imread(sys.argv[1])
         captured_image = cv2.imread(sys.argv[2])
     
-        
         #3rd arg is empty background
         if len(sys.argv) > 3 and os.path.isfile(sys.argv[2]) and os.path.isfile(sys.argv[3]):
             #optional background subtraction to remove background from the contour detection
