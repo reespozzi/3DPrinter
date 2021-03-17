@@ -35,6 +35,7 @@ def pre_process(image, threshold_value_1, threshold_value_2):
     kernel = np.ones((3, 3),np.uint8)
     edges = cv2.dilate(edges,kernel,iterations = 1)
     #returns the edge image
+   
     return edges
 
 
