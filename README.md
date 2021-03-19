@@ -1,6 +1,6 @@
 # Cost-Effective Object Analysis for 3D-Printing
 
-**Dependencies required for successul use** 
+**Dependencies required for successful use** 
 * install of python-opencv
 * install of python NumPy
 * install of python time library
