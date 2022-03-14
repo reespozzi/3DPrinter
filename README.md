@@ -9,13 +9,13 @@
 
 **Run Guide with Examples** 
 
-Once inside the root dir of the download,users should see dimensions.py, a readme file, and a testImages dir.
-To run the software tool with an expected model and a real image, enter two image parameters as shown in command 1.
+Once inside the root dir of the download, you can install all requirements with the command `pip3 install -r requirements.txt`.
+To run the software tool with an expected model and a real image, enter the first of the example commands shown below.
 To run the software tool with an expected model, a real image, and the still background image before the print started, enter the third image parameter as the background image, as shown in command 2. Please note that these commands are for a Linux machine. Commands may vary depending on OS used.
 
 Example Commands:
-* Command 1: python3 dimensions.py ./testImages/benchy_model.png ./testImages/benchy_failed.png
-* Command 2: python3 dimensions.py ./testImages/benchy_model.png ./testImages/benchy_model_print.png ./testImages/empty.png
+* Command 1: `python3 dimensions.py ./testImages/benchy_model.png ./testImages/benchy_failed.png`.
+* Command 2: `python3 dimensions.py ./testImages/benchy_model.png ./testImages/benchy_model_print.png ./testImages/empty.png`.
 
 **Expected Output**
 
